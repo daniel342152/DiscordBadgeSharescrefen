@@ -1,7 +1,7 @@
 FROM node:20-bookworm-slim
 
 ENV NODE_ENV=production \
-    PORT=3000 \
+    PORT=7860 \
     FFMPEG_PATH=/usr/bin/ffmpeg \
     npm_config_update_notifier=false \
     npm_config_fund=false
