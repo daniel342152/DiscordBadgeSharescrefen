@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Discord Stream AFK — Control Panel</title>
+<style>
+  :root{
+    --bg:#0b0d12; --card:#141821; --card2:#1b2130; --line:#252d3d;
+    --txt:#e6eaf2; --muted:#8b95a8; --accent:#5865f2; --ok:#3ba55d;
+    --warn:#faa61a; --err:#ed4245;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI',Tahoma,system-ui,sans-serif;font-size:14px}
+  a{color:var(--accent)}
+  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#0f131b}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  .pill{font-size:11px;padding:3px 9px;border-radius:99px;background:var(--card2);border:1px solid var(--line);color:var(--muted)}
+  main{max-width:1180px;margin:0 auto;padding:20px;display:grid;gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px;flex:1 1 180px;min-width:150px}
+  .field label{font-size:11px;color:var(--muted)}
+  input,select{background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit;width:100%}
+  input:focus,select:focus{outline:2px solid rgba(88,101,242,.45);border-color:var(--accent)}
+  button{background:var(--accent);border:none;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+  button:hover{filter:brightness(1.12)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+  button.danger{background:var(--err)}
+  button.ok{background:var(--ok)}
+  button.warn{background:var(--warn);color:#221800}
+  button.sm{padding:6px 11px;font-size:12px}
+  .acc{border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--card2);display:grid;gap:11px}
+  .acc+.acc{margin-top:11px}
+  .acc-top{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+  .avatar{width:40px;height:40px;border-radius:50%;background:#2b3242;object-fit:cover;flex:0 0 auto}
+  .acc-name{font-weight:600}
+  .acc-sub{font-size:11px;color:var(--muted)}
+  .state{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);background:#20283a;color:var(--muted)}
+  .state.online{color:#8ef5b1;border-color:#2b5c40}
+  .state.in-voice{color:#8fc4ff;border-color:#2b4a6e}
+  .state.streaming{color:#fff;background:var(--err);border-color:#a82a2c}
+  .state.checking{color:#ffe08a}
+  .state.invalid,.state.disconnected{color:#ff9a9c;border-color:#6d2a2c}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .err{color:#ffb1b3;font-size:12px;margin-top:2px;word-break:break-word}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:22px}
+  #logs{background:#080a0f;border:1px solid var(--line);border-radius:8px;padding:11px;height:260px;overflow-y:auto;font-family:Consolas,monospace;font-size:11.5px;line-height:1.65;direction:ltr;text-align:left}
+  #logs div{white-space:pre-wrap;word-break:break-word}
+  .l-info{color:#b7c4d8} .l-warn{color:#ffd479} .l-error{color:#ff8b8e} .l-debug{color:#7c8798}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1c2331;border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:90vw}
+  .toast.show{opacity:1}
+  .toast.err{border-color:#6d2a2c;background:#2a1a1c}
+  .toast.ok{border-color:#2b5c40;background:#16241c}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.7}
+  .warnbox{border:1px solid #6b551f;background:#241e0e;color:#ffdf9b;border-radius:9px;padding:11px;font-size:12px;line-height:1.7}
+  #login{position:fixed;inset:0;background:rgba(6,8,12,.93);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #login .card{max-width:380px;width:100%}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎥 Discord Stream AFK</h1>
+  <span class="pill" id="pillStats">—</span>
+  <span class="pill" id="pillFfmpeg">ffmpeg: —</span>
+  <span style="flex:1"></span>
+  <button class="ghost sm" id="btnRefresh">تحديث</button>
+</header>
+
+<div id="login" class="hidden">
+  <div class="card">
+    <h2>🔒 كلمة سر اللوحة</h2>
+    <div class="field">
+      <label>PANEL_PASSWORD</label>
+      <input type="password" id="pw" placeholder="اكتب كلمة السر" />
+    </div>
+    <div style="margin-top:12px"><button id="btnLogin" style="width:100%">دخول</button></div>
+    <div class="err" id="pwErr"></div>
+  </div>
+</div>
+
+<main>
+
+  <div class="warnbox">
+    ⚠️ ده self-bot على حسابات ALT. Discord بيمنع الـ self-bot في الـ ToS، فأي حساب ممكن يتقفل.
+    استخدمه على مسؤوليتك — متحطش حسابك الأساسي أبداً.
+  </div>
+
+  <div class="card">
+    <h2>1️⃣ حساب البث (Streamer)</h2>
+    <p class="hint">ده الحساب اللي هيدخل الروم ويفتح الشير سكرين. هنجيب التوكن من المتصفح (Developer Tools → Application → Local Storage → token).</p>
+    <div class="row">
+      <div class="field" style="flex:1 1 160px">
+        <label>اسم مختصر</label>
+        <input id="sLabel" placeholder="مثلاً: streamer-alt" />
+      </div>
+      <div class="field" style="flex:3 1 320px">
+        <label>Discord Token</label>
+        <input id="sToken" type="password" placeholder="xxx.yyy.zzz" autocomplete="off" />
+      </div>
+      <button id="btnAddStreamer">فحص وإضافة</button>
+    </div>
+    <div class="err" id="sErr"></div>
+  </div>
+
+  <div class="card">
+    <h2>2️⃣ حساب المشاهدة (Viewer) — اختياري</h2>
+    <p class="hint">حساب تاني يدخل نفس الروم ويتفرج على الشير. لو مش محتاجه سيبه فاضي.</p>
+    <div class="row">
+      <div class="field" style="flex:1 1 160px">
+        <label>اسم مختصر</label>
+        <input id="vLabel" placeholder="مثلاً: viewer-alt" />
+      </div>
+      <div class="field" style="flex:3 1 320px">
+        <label>Discord Token</label>
+        <input id="vToken" type="password" placeholder="xxx.yyy.zzz" autocomplete="off" />
+      </div>
+      <button id="btnAddViewer" class="ghost">فحص وإضافة</button>
+    </div>
+    <div class="err" id="vErr"></div>
+  </div>
+
+  <div class="card">
+    <h2>3️⃣ الحسابات المتصلة</h2>
+    <div id="accounts"><div class="empty">لسه مفيش حسابات. ضيف حساب من فوق.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>📜 اللوجز</h2>
+    <div id="logs"></div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  let KEY = sessionStorage.getItem('panelKey') || '';
+  let accounts = [];
+  let guildsCache = {};
+  let channelsCache = {};
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  function toast(msg, kind) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { t.className = 'toast'; }, 4200);
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (KEY) headers['x-panel-key'] = KEY;
+    const res = await fetch(path, Object.assign({}, opts, { headers }));
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = { ok:false, error:'رد غير متوقع من السيرفر' }; }
+    if (res.status === 401) { showLogin(); throw new Error(data.error || 'unauthorized'); }
+    if (!res.ok || data.ok === false) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  function showLogin() { $('login').classList.remove('hidden'); }
+  function hideLogin() { $('login').classList.add('hidden'); }
+
+  /* ---------------- render ---------------- */
+
+  const STATE_LABEL = {
+    checking: 'جاري الفحص', online: 'متصل', offline: 'غير متصل',
+    joining: 'بيدخل الروم', 'in-voice': 'في الروم', streaming: 'بيبث',
+    disconnected: 'اتقطع', invalid: 'توكن غلط',
+  };
+
+  function fmtDur(sec) {
+    sec = Math.max(0, sec | 0);
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (h) return `${h}س ${m}د`;
+    if (m) return `${m}د ${s}ث`;
+    return `${s}ث`;
+  }
+
+  function renderAccounts() {
+    const box = $('accounts');
+    if (!accounts.length) {
+      box.innerHTML = '<div class="empty">لسه مفيش حسابات. ضيف حساب من فوق.</div>';
+      return;
+    }
+
+    box.innerHTML = accounts.map((a) => {
+      const u = a.user || {};
+      const avatar = u.avatar ? `<img class="avatar" src="${esc(u.avatar)}" alt="" />` : '<div class="avatar"></div>';
+      const roleTxt = a.role === 'viewer' ? 'مشاهدة' : 'بث';
+      const stateTxt = STATE_LABEL[a.state] || a.state;
+      const streamTxt = a.stream && a.stream.active ? ` · بث ${fmtDur(a.stream.durationSec)}` : '';
+      const where = a.guildName ? `${esc(a.guildName)} / ${esc(a.channelName || '')}` : '';
+      const inVoice = Boolean(a.channelId);
+      const streaming = Boolean(a.stream && a.stream.active);
+      const isViewer = a.role === 'viewer';
+
+      return `
+      <div class="acc" data-id="${esc(a.id)}">
+        <div class="acc-top">
+          ${avatar}
+          <div style="flex:1;min-width:120px">
+            <div class="acc-name">${esc(u.tag || u.username || a.label)}</div>
+            <div class="acc-sub">${roleTxt} · ${esc(a.label)}${where ? ' · ' + where : ''}${streamTxt}</div>
+          </div>
+          <span class="state ${esc(a.state)}">${esc(stateTxt)}</span>
+          <button class="ghost sm" data-act="remove">مسح</button>
+        </div>
+
+        ${a.lastError ? `<div class="err">${esc(a.lastError)}</div>` : ''}
+
+        <div class="row">
+          <div class="field" style="flex:2 1 220px">
+            <label>Server</label>
+            <select data-act="guild"><option value="">— اختر سيرفر —</option></select>
+          </div>
+          <div class="field" style="flex:2 1 220px">
+            <label>Voice Channel</label>
+            <select data-act="channel"><option value="">— اختر روم صوتي —</option></select>
+          </div>
+          <button data-act="join" ${inVoice ? 'disabled' : ''}>دخول الروم</button>
+          <button class="ghost" data-act="leave" ${inVoice ? '' : 'disabled'}>خروج</button>
+        </div>
+
+        ${isViewer ? '' : `
+        <div class="actions">
+          <button class="ok" data-act="streamStart" ${inVoice && !streaming ? '' : 'disabled'}>▶️ ابدأ الشير</button>
+          <button class="warn" data-act="streamStop" ${streaming ? '' : 'disabled'}>⏹️ وقف الشير</button>
+          ${streaming ? `<span class="pill">⏱️ ${fmtDur(a.stream.durationSec)}</span>` : ''}
+        </div>`}
+      </div>`;
+    }).join('');
+
+    // اربط الأحداث + حمّل السيرفرات
+    for (const el of box.querySelectorAll('.acc')) {
+      const id = el.getAttribute('data-id');
+      wireAccount(el, id);
+    }
+
+    const st = window.__stats;
+    if (st) $('pillStats').textContent = `👥 ${st.total}/${st.max} · 🎧 ${st.inVoice} · 🔴 ${st.streaming}`;
+  }
+
+  function wireAccount(el, id) {
+    const acc = accounts.find((a) => a.id === id);
+    if (!acc) return;
+
+    const guildSel = el.querySelector('[data-act="guild"]');
+    const chanSel = el.querySelector('[data-act="channel"]');
+
+    el.querySelector('[data-act="remove"]').onclick = async () => {
+      if (!confirm('متأكد إنك عايز تمسح الحساب ده من اللوحة؟')) return;
+      try { await api('/api/accounts/' + id, { method: 'DELETE' }); toast('تم مسح الحساب', 'ok'); await refresh(); }
+      catch (e) { toast(e.message, 'err'); }
+    };
+
+    el.querySelector('[data-act="join"]').onclick = async () => {
+      const guildId = guildSel.value;
+      const channelId = chanSel.value;
+      if (!guildId || !channelId) return toast('اختار السيرفر والروم الأول', 'err');
+      const btn = el.querySelector('[data-act="join"]');
+      btn.disabled = true; btn.textContent = 'بيدخل…';
+      try {
+        await api('/api/accounts/' + id + '/join', { method: 'POST', body: JSON.stringify({ guildId, channelId }) });
+        toast('دخل الروم ✅', 'ok');
+      } catch (e) { toast(e.message, 'err'); }
+      await refresh();
+    };
+
+    el.querySelector('[data-act="leave"]').onclick = async () => {
+      const btn = el.querySelector('[data-act="leave"]');
+      btn.disabled = true; btn.textContent = 'بيخرج…';
+      try { await api('/api/accounts/' + id + '/leave', { method: 'POST' }); toast('خرج من الروم', 'ok'); }
+      catch (e) { toast(e.message, 'err'); }
+      await refresh();
+    };
+
+    const bs = el.querySelector('[data-act="streamStart"]');
+    if (bs) bs.onclick = async () => {
+      bs.disabled = true; bs.textContent = 'بيفتح الشير…';
+      try { await api('/api/accounts/' + id + '/stream/start', { method: 'POST' }); toast('الشير سكرين شغال 🔴', 'ok'); }
+      catch (e) { toast(e.message, 'err'); }
+      await refresh();
+    };
+
+    const bt = el.querySelector('[data-act="streamStop"]');
+    if (bt) bt.onclick = async () => {
+      bt.disabled = true;
+      try { await api('/api/accounts/' + id + '/stream/stop', { method: 'POST' }); toast('تم وقف الشير', 'ok'); }
+      catch (e) { toast(e.message, 'err'); }
+      await refresh();
+    };
+
+    // تحميل السيرفرات
+    loadGuilds(id, guildSel, chanSel, acc);
+  }
+
+  async function loadGuilds(id, guildSel, chanSel, acc) {
+    try {
+      if (!guildsCache[id]) {
+        const data = await api('/api/accounts/' + id + '/guilds');
+        guildsCache[id] = data.guilds || [];
+      }
+      const guilds = guildsCache[id];
+      guildSel.innerHTML = '<option value="">— اختر سيرفر —</option>' +
+        guilds.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
+
+      if (acc && acc.guildId && guilds.some((g) => g.id === acc.guildId)) {
+        guildSel.value = acc.guildId;
+        await loadChannels(id, acc.guildId, chanSel, acc);
+      }
+
+      guildSel.onchange = async () => {
+        chanSel.innerHTML = '<option value="">— اختر روم صوتي —</option>';
+        if (!guildSel.value) return;
+        await loadChannels(id, guildSel.value, chanSel, null);
+      };
+    } catch (e) {
+      guildSel.innerHTML = '<option value="">تعذر تحميل السيرفرات</option>';
+    }
+  }
+
+  async function loadChannels(id, guildId, chanSel, acc) {
+    const cacheKey = id + ':' + guildId;
+    try {
+      if (!channelsCache[cacheKey]) {
+        const data = await api('/api/accounts/' + id + '/guilds/' + guildId + '/channels');
+        channelsCache[cacheKey] = data.channels || [];
+      }
+      const chans = channelsCache[cacheKey];
+      chanSel.innerHTML = '<option value="">— اختر روم صوتي —</option>' +
+        chans.map((c) => `<option value="${esc(c.id)}">🔊 ${esc(c.name)}</option>`).join('');
+      if (acc && acc.channelId && chans.some((c) => c.id === acc.channelId)) chanSel.value = acc.channelId;
+    } catch (e) {
+      chanSel.innerHTML = '<option value="">تعذر تحميل الرومات</option>';
+    }
+  }
+
+  /* ---------------- data ---------------- */
+
+  async function refresh() {
+    try {
+      const data = await api('/api/accounts');
+      accounts = data.accounts || [];
+      window.__stats = data.stats;
+      renderAccounts();
+    } catch (e) {
+      if (e.message !== 'unauthorized') toast(e.message, 'err');
+    }
+    try {
+      const sys = await api('/api/system');
+      $('pillFfmpeg').textContent = 'ffmpeg: ' + (sys.ffmpeg && sys.ffmpeg.ok ? 'OK' : 'مش موجود');
+    } catch (_) { /* ignore */ }
+  }
+
+  async function addAccount(kind) {
+    const isStreamer = kind === 'streamer';
+    const labelEl = isStreamer ? $('sLabel') : $('vLabel');
+    const tokenEl = isStreamer ? $('sToken') : $('vToken');
+    const errEl = isStreamer ? $('sErr') : $('vErr');
+    errEl.textContent = '';
+
+    const token = tokenEl.value.trim();
+    if (!token) { errEl.textContent = 'اكتب التوكن الأول.'; return; }
+
+    errEl.textContent = 'بيفحص التوكن…';
+    try {
+      const r = await api('/api/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ label: labelEl.value.trim(), token, role: kind }),
+      });
+      errEl.textContent = '';
+      tokenEl.value = ''; labelEl.value = '';
+      const tag = r.account && r.account.user ? r.account.user.tag : '';
+      toast(r.duplicate ? 'الحساب ده متضاف بالفعل' : `✅ التوكن شغال — ${tag}`, 'ok');
+      await refresh();
+    } catch (e) {
+      errEl.textContent = e.message;
+    }
+  }
+
+  /* ---------------- logs (SSE) ---------------- */
+
+  let es = null;
+  function startLogs() {
+    if (es) return;
+    if (!KEY) return;
+    const url = '/api/logs/stream' + (KEY ? ('?key=' + encodeURIComponent(KEY)) : '');
+    es = new EventSource(url);
+    const box = $('logs');
+    box.innerHTML = '';
+    es.onmessage = (ev) => {
+      try {
+        const line = JSON.parse(ev.data);
+        const d = document.createElement('div');
+        d.className = 'l-' + (line.level || 'info');
+        d.textContent = '[' + line.time + '] ' + line.text;
+        box.appendChild(d);
+        while (box.childElementCount > 500) box.removeChild(box.firstChild);
+        box.scrollTop = box.scrollHeight;
+      } catch (_) { /* ignore */ }
+    };
+    es.onerror = () => { /* EventSource retries automatically */ };
+  }
+
+  /* ---------------- auth ---------------- */
+
+  async function tryBoot() {
+    try {
+      const h = await (await fetch('/api/health')).json();
+      if (h.protected && !KEY) { showLogin(); return; }
+      hideLogin();
+      startLogs();
+      await refresh();
+      setInterval(refresh, 8000);
+    } catch (e) {
+      toast('السيرفر مش متاح', 'err');
+    }
+  }
+
+  $('btnLogin').onclick = async () => {
+    const pw = $('pw').value;
+    $('pwErr').textContent = '';
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'كلمة السر غلط');
+      KEY = pw;
+      sessionStorage.setItem('panelKey', KEY);
+      hideLogin();
+      startLogs();
+      await refresh();
+      setInterval(refresh, 8000);
+    } catch (e) { $('pwErr').textContent = e.message; }
+  };
+
+  $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnLogin').click(); });
+  $('btnAddStreamer').onclick = () => addAccount('streamer');
+  $('btnAddViewer').onclick = () => addAccount('viewer');
+  $('btnRefresh').onclick = () => { guildsCache = {}; channelsCache = {}; refresh(); };
+
+  tryBoot();
+})();
+</script>
+</body>
+</html>
